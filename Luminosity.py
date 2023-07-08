@@ -2,34 +2,54 @@
 
 import numpy as np
 import pandas as pd
-import math
 
 def bcv_from_teff(teff):
     """
     Calculate the Bolometric Correction in the V-band (BCV) based on the effective temperature (teff).
+    Based on the work of Flower (1996) https://ui.adsabs.harvard.edu/abs/1996ApJ...469..355F/abstract 
 
     Parameters:
-        teff (float): Effective temperature.
+        teff (float or array-like): Effective temperature(s).
 
     Returns:
-        float: Bolometric Correction in the V-band (BCV).
+        float or array-like: Bolometric Correction(s) in the V-band (BCV).
 
     Raises:
         None.
     """
-
-    if teff < 5111:
-        # Calculate BCV for the given condition
-        bcv = -19053.7291496456 + 15514.4866764412 * math.log10(teff) - 4212.78819301717 * math.log10(teff) ** 2 + 381.476328422343 * math.log10(teff) ** 3
-    elif teff >= 5111 and teff < 7943:
-        # Calculate BCV for the given condition
-        bcv = -37051.0203809015 + 38567.2629965804 * math.log10(teff) - 15065.1486316025 * math.log10(teff) ** 2 + 2617.24637119416 * math.log10(teff) ** 3 - 170.623810323864 * math.log10(teff) ** 4
-    elif teff >= 7943:
-        # Calculate BCV for the given condition
-        bcv = -118115.450538963 + 137145.973583929 * math.log10(teff) - 63623.3812100225 * math.log10(teff) ** 2 + 14741.2923562646 * math.log10(teff) ** 3 - 1705.87278406872 * math.log10(teff) ** 4 + 78.873172180499 * math.log10(teff) ** 5
+    # Convert teff to a NumPy array if it's not already
+    teff = np.array(teff)
     
-    # Return the calculated BCV
+    # Initialize an array to store the BCV values
+    bcv = np.zeros_like(teff)
+    
+    # Calculate BCV for teff < 5111
+    condition = (teff < 5111)
+    log_teff = np.log10(teff[condition])
+    log_teff_squared = log_teff ** 2
+    log_teff_cubed = log_teff ** 3
+    bcv[condition] = -19053.7291496456 + 15514.4866764412 * log_teff - 4212.78819301717 * log_teff_squared + 381.476328422343 * log_teff_cubed
+    
+    # Calculate BCV for 5111 <= teff < 7943
+    condition = (teff >= 5111) & (teff < 7943)
+    log_teff = np.log10(teff[condition])
+    log_teff_squared = log_teff ** 2
+    log_teff_cubed = log_teff ** 3
+    log_teff_quartic = log_teff_squared ** 2
+    bcv[condition] = -37051.0203809015 + 38567.2629965804 * log_teff - 15065.1486316025 * log_teff_squared + 2617.24637119416 * log_teff_cubed - 170.623810323864 * log_teff_quartic
+    
+    # Calculate BCV for teff >= 7943
+    condition = (teff >= 7943)
+    log_teff = np.log10(teff[condition])
+    log_teff_squared = log_teff ** 2
+    log_teff_cubed = log_teff ** 3
+    log_teff_quartic = log_teff_squared ** 2
+    log_teff_quintic = log_teff_cubed ** 2
+    bcv[condition] = -118115.450538963 + 137145.973583929 * log_teff - 63623.3812100225 * log_teff_squared + 14741.2923562646 * log_teff_cubed - 1705.87278406872 * log_teff_quartic + 78.873172180499 * log_teff_quintic
+    
+    # Return the calculated BCV values
     return bcv
+
 
 
 
@@ -90,11 +110,8 @@ def Vmag_to_L_error(teff, v, plx, teff_err, v_err, plx_err):
     v_tmp = np.random.normal(v, v_err, 1000) if v_err is not None else np.full(1000, v)
     plx_tmp = np.random.normal(plx, plx_err, 1000) if plx_err is not None else np.full(1000, plx)
 
-    # Vectorize the Vmag_to_L function
-    Vmag_to_L_vec = np.vectorize(Vmag_to_L)
-
     # Apply the vectorized function to the arrays of teff_tmp, v_tmp, and plx_tmp to calculate L_array
-    L_array = Vmag_to_L_vec(teff_tmp, v_tmp, plx_tmp)
+    L_array = Vmag_to_L(teff_tmp, v_tmp, plx_tmp)
 
     # Calculate the mean and standard deviation of the luminosity array
     mean_L = np.mean(L_array)
@@ -102,8 +119,6 @@ def Vmag_to_L_error(teff, v, plx, teff_err, v_err, plx_err):
 
     # Return the mean and standard deviation as a tuple
     return mean_L, std_L
-
-
 
 
 if __name__ == '__main__':
